@@ -1,0 +1,44 @@
+{
+  "name": "filterer",
+  "description": "html5 particle effect game",
+  "homepage": "https://github.com/EricMCornelius/filterer",
+  "author": {
+    "name": "Eric M. Cornelius",
+    "email": "EricMCornelius@gmail.com",
+    "url": "https://github.com/EricMCornelius"
+  },
+  "version": "0.1.0",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:EricMCornelius/filterer.git"
+  },
+  "bugs": {
+    "url": "https://github.com/EricMCornelius/filterer/issues",
+    "email": "EricMCornelius@gmail.com"
+  },
+  "engines": {
+    "node": "0.10.*"
+  },
+  "dependencies": {
+    "config": "^1.2.2",
+    "koa": "*",
+    "koa-static": "^1.4.7",
+    "lodash": "*",
+    "three": "^0.66.4"
+  },
+  "devDependencies": {
+    "chai": "*",
+    "gulp": "*",
+    "gulp-istanbul": "*",
+    "gulp-jshint": "*",
+    "gulp-livereload": "^2.1.1",
+    "gulp-mocha": "*",
+    "jshint-stylish": "*",
+    "mocha": "*"
+  },
+  "scripts": {
+    "start": "node --harmony node_modules/gulp/bin/gulp.js",
+    "test": "node --harmony node_modules/gulp/bin/gulp.js test"
+  },
+  "readme": "README.md"
+}

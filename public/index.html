@@ -1,0 +1,436 @@
+<html>
+<head>
+<title>Filterer</title>
+<style>
+
+canvas {
+  width: 100%;
+  height: 100%
+}
+
+html, body {
+  width:  100%;
+  height: 100%;
+  margin: 0px;
+}
+
+#control_bar {
+  position: fixed;
+  bottom: 0px;
+  width:  100%;
+  height: 10px;
+  background-color: transparent;
+  transition: height 1s;
+}
+
+#control_bar:hover {
+  height: 50px;
+  padding: 0px;
+}
+
+.button {
+  display: inline-block;
+  height: 100%;
+  padding-left: 5px;
+  padding-right: 5px;
+  bottom: 0px;
+  background-color: transparent;
+
+  font-weight: bold;
+  font-size: 2em;
+  font-family: 'arial';
+  text-align: center;
+  vertical-align: middle;
+  line-height: 50px;
+}
+
+.noselect {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+.button:hover {
+  cursor: pointer;
+}
+
+</style>
+
+<script id="color_template" type="x-css-template">
+  .{{color}} {
+    color: {{primary}};
+    text-shadow: 0 0 5px {{primary}}, 0 0 10px {{primary}}, 0 0 15px {{primary}}, 0 0 20px {{secondary}}, 0 0 50px {{secondary}}, 0 0 70px {{secondary}}, 0 0 100px {{secondary}};
+    transition: text-shadow 0.25s, color 0.25s;
+  }
+
+  .{{color}}:hover {
+    color: {{primary}};
+    text-shadow: 0 0 5px {{primary}}, 0 0 10px {{primary}}, 0 0 15px {{primary}}, 0 0 20px {{secondary}}, 0 0 50px {{secondary}}, 0 0 60px {{secondary}}, 0 0 70px {{secondary}}, 0 0 90px {{secondary}}, 0 0 100px {{secondary}}, 0 0 120px {{secondary}};
+  }
+</script>
+
+<script type='text/javascript'>
+  var colors = [
+    {color: 'red', primary: '#ff55aa', secondary: '#de0000'},
+    {color: 'blue', primary: '#55aaff', secondary: '#0000de'},
+    {color: 'green', primary: '#55ffaa', secondary: '#00de00'},
+    {color: 'white', primary: '#ffffff', secondary: '#dddddd'}
+  ];
+
+  function replace(tmpl, args) {
+    for (var key in args) {
+      var value = args[key];
+      tmpl = tmpl.replace(new RegExp('{{' + key + '}}', 'g'), value);
+    }
+    return tmpl;
+  }
+
+  colors.forEach(function(color) {
+    var template = document.getElementById('color_template').textContent;
+    var style_str = replace(template, color);
+
+    var sheet = document.createElement('style');
+    sheet.innerHTML = style_str;
+    document.head.appendChild(sheet);
+  });
+</script>
+
+<script id="blur_shader" type="x-shader/x-fragment">
+  varying vec2 vUv;
+  uniform sampler2D tDiffuse;
+
+  uniform float opacity;
+  uniform float width;
+  uniform float height;
+
+  void main() {
+    vec4 sum = vec4(0.0);
+
+    sum += texture2D(tDiffuse, vec2(vUv.x - 1.0 * width, vUv.y - 1.0 * height)) * 1.0;
+    sum += texture2D(tDiffuse, vec2(vUv.x,               vUv.y - 1.0 * height)) * 2.0;
+    sum += texture2D(tDiffuse, vec2(vUv.x + 1.0 * width, vUv.y - 1.0 * height)) * 1.0;
+    sum += texture2D(tDiffuse, vec2(vUv.x - 1.0 * width, vUv.y               )) * 2.0;
+    sum += texture2D(tDiffuse, vec2(vUv.x,               vUv.y               )) * 4.0;
+    sum += texture2D(tDiffuse, vec2(vUv.x + 1.0 * width, vUv.y               )) * 2.0;
+    sum += texture2D(tDiffuse, vec2(vUv.x - 1.0 * width, vUv.y + 1.0 * height)) * 1.0;
+    sum += texture2D(tDiffuse, vec2(vUv.x,               vUv.y + 1.0 * height)) * 2.0;
+    sum += texture2D(tDiffuse, vec2(vUv.x + 1.0 * width, vUv.y + 1.0 * height)) * 1.0;
+
+    sum /= 16.0;
+    //sum -= 0.005;
+    gl_FragColor = vec4(sum.rgb, opacity);
+  }
+</script>
+
+<script id="fade_out_shader" type="x-shader/x-fragment">
+  varying vec2 vUv;
+  uniform sampler2D tDiffuse;
+
+  uniform float width;
+  uniform float height;
+
+  void main() {
+    vec4 color = texture2D(tDiffuse, vec2(vUv.x, vUv.y));
+    color -= 0.005;
+    gl_FragColor = color;
+  }
+</script>
+
+<script id="edge_shader" type="x-shader/x-fragment">
+  varying vec2 vUv;
+  uniform sampler2D tDiffuse;
+
+  uniform float opacity;
+  uniform float width;
+  uniform float height;
+
+  void main() {
+    vec4 sum_x = vec4(0.0);
+    vec4 sum_y = vec4(0.0);
+
+    sum_x += texture2D(tDiffuse, vec2(vUv.x - 1.0 * width, vUv.y - 1.0 * height)) * -1.0;
+    sum_x += texture2D(tDiffuse, vec2(vUv.x - 1.0 * width, vUv.y               )) * -2.0;
+    sum_x += texture2D(tDiffuse, vec2(vUv.x - 1.0 * width, vUv.y + 1.0 * height)) * -1.0;
+    sum_x += texture2D(tDiffuse, vec2(vUv.x + 1.0 * width, vUv.y - 1.0 * height)) *  1.0;
+    sum_x += texture2D(tDiffuse, vec2(vUv.x + 1.0 * width, vUv.y               )) *  2.0;
+    sum_x += texture2D(tDiffuse, vec2(vUv.x + 1.0 * width, vUv.y + 1.0 * height)) *  1.0;
+
+    sum_y += texture2D(tDiffuse, vec2(vUv.x - 1.0 * width, vUv.y - 1.0 * height)) * -1.0;
+    sum_y += texture2D(tDiffuse, vec2(vUv.x              , vUv.y - 1.0 * height)) * -2.0;
+    sum_y += texture2D(tDiffuse, vec2(vUv.x + 1.0 * width, vUv.y - 1.0 * height)) * -1.0;
+    sum_y += texture2D(tDiffuse, vec2(vUv.x - 1.0 * width, vUv.y + 1.0 * height)) *  1.0;
+    sum_y += texture2D(tDiffuse, vec2(vUv.x              , vUv.y + 1.0 * height)) *  2.0;
+    sum_y += texture2D(tDiffuse, vec2(vUv.x + 1.0 * width, vUv.y + 1.0 * height)) *  1.0;
+
+    vec4 sum = sqrt(sum_x * sum_x + sum_y * sum_y);
+    gl_FragColor = vec4(sum.rgb, opacity);
+  }
+</script>
+
+<script id="toon_shader" type="x-shader/x-fragment">
+  varying vec2 vUv;
+  uniform sampler2D tDiffuse;
+
+  uniform float opacity;
+  uniform float width;
+  uniform float height;
+
+  void main() {
+    vec4 sum_x = vec4(0.0);
+    vec4 sum_y = vec4(0.0);
+
+    sum_x += texture2D(tDiffuse, vec2(vUv.x - 1.0 * width, vUv.y - 1.0 * height)) * -1.0;
+    sum_x += texture2D(tDiffuse, vec2(vUv.x - 1.0 * width, vUv.y               )) * -2.0;
+    sum_x += texture2D(tDiffuse, vec2(vUv.x - 1.0 * width, vUv.y + 1.0 * height)) * -1.0;
+    sum_x += texture2D(tDiffuse, vec2(vUv.x + 1.0 * width, vUv.y - 1.0 * height)) *  1.0;
+    sum_x += texture2D(tDiffuse, vec2(vUv.x + 1.0 * width, vUv.y               )) *  2.0;
+    sum_x += texture2D(tDiffuse, vec2(vUv.x + 1.0 * width, vUv.y + 1.0 * height)) *  1.0;
+
+    sum_y += texture2D(tDiffuse, vec2(vUv.x - 1.0 * width, vUv.y - 1.0 * height)) * -1.0;
+    sum_y += texture2D(tDiffuse, vec2(vUv.x              , vUv.y - 1.0 * height)) * -2.0;
+    sum_y += texture2D(tDiffuse, vec2(vUv.x + 1.0 * width, vUv.y - 1.0 * height)) * -1.0;
+    sum_y += texture2D(tDiffuse, vec2(vUv.x - 1.0 * width, vUv.y + 1.0 * height)) *  1.0;
+    sum_y += texture2D(tDiffuse, vec2(vUv.x              , vUv.y + 1.0 * height)) *  2.0;
+    sum_y += texture2D(tDiffuse, vec2(vUv.x + 1.0 * width, vUv.y + 1.0 * height)) *  1.0;
+
+    vec4 sum = sqrt(sum_x * sum_x + sum_y * sum_y);
+    float magnitude = length(sum);
+    if (magnitude > 0.5) {
+      gl_FragColor = vec4(0.0, 0.0, 0.0, opacity);
+    }
+    else {
+      vec4 color = texture2D(tDiffuse, vUv);
+      color = color - mod(color, 0.1);
+      gl_FragColor = vec4(color.rgb, opacity);
+    }
+  }
+</script>
+
+<script id="invert_shader" type="x-shader/x-fragment">
+  varying vec2 vUv;
+  uniform sampler2D tDiffuse;
+
+  uniform float width;
+  uniform float height;
+
+  void main() {
+    vec4 color = texture2D(tDiffuse, vUv);
+    vec4 inverted = vec4(1.0 - color.r, 1.0 - color.g, 1.0 - color.b, 1.0);
+    gl_FragColor = inverted;
+  }
+</script>
+
+<script id="red_shader" type="x-shader/x-fragment">
+  varying vec2 vUv;
+  uniform sampler2D tDiffuse;
+
+  uniform float opacity;
+  uniform float width;
+  uniform float height;
+
+  void main() {
+    vec4 color = texture2D(tDiffuse, vUv);
+    gl_FragColor = vec4(color.r, 0.0, 0.0, opacity);
+  }
+</script>
+
+<script id="green_shader" type="x-shader/x-fragment">
+  varying vec2 vUv;
+  uniform sampler2D tDiffuse;
+
+  uniform float opacity;
+  uniform float width;
+  uniform float height;
+
+  void main() {
+    vec4 color = texture2D(tDiffuse, vUv);
+    gl_FragColor = vec4(0.0, color.g, 0.0, opacity);
+  }
+</script>
+
+<script id="blue_shader" type="x-shader/x-fragment">
+  varying vec2 vUv;
+  uniform sampler2D tDiffuse;
+
+  uniform float opacity;
+  uniform float width;
+  uniform float height;
+
+  void main() {
+    vec4 color = texture2D(tDiffuse, vUv);
+    gl_FragColor = vec4(0.0, 0.0, color.b, opacity);
+  }
+</script>
+
+<script id="motion_blur_shader" type="x-shader/x-fragment">
+  varying vec2 vUv;
+  uniform sampler2D tDiffuse;
+
+  uniform float opacity;
+  uniform float width;
+  uniform float height;
+
+  void main() {
+    vec4 color = texture2D(tDiffuse, vUv);
+    gl_FragColor = vec4(color.rgb, opacity);
+  }
+</script>
+
+<script id="static_shader" type="x-shader/x-fragment">
+  varying vec2 vUv;
+  uniform sampler2D tDiffuse;
+
+  uniform float time;
+  uniform float opacity;
+  uniform float width;
+  uniform float height;
+
+  float rand(vec2 co) {
+    return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);
+  }
+
+  void main() {
+    float val = rand(time * gl_FragCoord.xy);
+    gl_FragColor = vec4(val, val, val, opacity);
+  }
+</script>
+
+<script id="julia_shader" type="x-shader/x-fragment">
+  varying vec2 vUv;
+  uniform sampler2D tDiffuse;
+
+  uniform float time;
+  uniform float opacity;
+  uniform float width;
+  uniform float height;
+
+  float rand(vec2 co) {
+    return fract(sin(dot(co.xy, vec2(12.9898,78.233))) * 43758.5453);
+  }
+
+  void main() {
+    float val = rand(time * gl_FragCoord.xy);
+    gl_FragColor = vec4(val, 0.0, 0.0, 1.0);
+  }
+</script>
+
+<script id="mandelbrot_shader" type="x-shader/x-fragment">
+  uniform float time;
+  uniform float opacity;
+  uniform float width;
+  uniform float height;
+
+  #define NUM_STEPS 128
+
+  #ifdef GL_FRAGMENT_PRECISION_HIGH
+    precision highp float;
+  #else
+    precision mediump float;
+  #endif
+  precision mediump int;
+
+  // http://lolengine.net/blog/2013/07/27/rgb-to-hsv-in-glsl
+  vec3 rgb2hsv(vec3 c)
+  {
+    vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
+    vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
+    vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
+
+    float d = q.x - min(q.w, q.y);
+    float e = 1.0e-10;
+    return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+  }
+
+  vec3 hsv2rgb(vec3 c)
+  {
+    vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+    vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+    return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+  }
+
+  void main() {
+    vec2 z;
+    float x, y;
+    int steps;
+    float val = 0.0;
+    float zoom = 1.0 / (time * time);
+    float normalizedX = 2.0 * (width * gl_FragCoord.x - 0.5) * zoom * (height / width);
+    float normalizedY = 2.0 * (height * gl_FragCoord.y - 0.5) * zoom;
+
+    // http://www.nahee.com/Derbyshire/manguide.html
+
+    // seahorse valley
+    normalizedX -= 0.7449;
+    normalizedY += 0.1;
+
+    // elephant valley
+    // normalizedX += 0.275;
+
+    z.x = normalizedX;
+    z.y = normalizedY;
+
+    for (int i = 0; i < NUM_STEPS; ++i) {
+      steps = i;
+
+      x = (z.x * z.x - z.y * z.y) + normalizedX;
+      y = (z.y * z.x + z.x * z.y) + normalizedY;
+
+      val = x * x + y * y;
+      if (val > 4.0) {
+        break;
+      }
+
+      z.x = x;
+      z.y = y;
+    }
+
+    if (steps == NUM_STEPS - 1) {
+      float v = float(steps) / float(NUM_STEPS) / 5.0 + 0.5;
+      v += 4.0 - (z.x * z.x + z.y * z.y) / 10.0;
+      vec3 c = hsv2rgb(vec3(v, 1.0, 1.0));
+      gl_FragColor = vec4(c, opacity);
+    }
+    else {
+      float v = float(steps) / float(NUM_STEPS) / 5.0 + 0.5;
+      vec3 c = hsv2rgb(vec3(v, 1.0, 1.0));
+      gl_FragColor = vec4(c, opacity);
+    }
+  }
+</script>
+
+<script id="vertex_shader_screen" type="x-shader/x-vertex">
+
+  varying vec2 vUv;
+
+  void main() {
+    vUv = uv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+
+</script>
+
+
+</head>
+<body>
+<div id='render_target' class='noselect droppable'></div>
+<div id='control_bar' class='noselect'>
+  <span class='noselect red button' data-filter='blur'>Blur</span>
+  <span class='noselect green button' data-filter='toon'>Toon</span>
+  <span class='noselect blue button' data-filter='edge'>Edge</span>
+  <span class='noselect red button' data-filter='red'>Red</span>
+  <span class='noselect green button' data-filter='green'>Green</span>
+  <span class='noselect blue button' data-filter='blue'>Blue</span>
+  <span class='noselect white button' data-filter='static'>Static</span>
+  <span class='noselect white button' data-filter='julia'>Julia</span>
+  <span class='noselect white button' data-filter='mandelbrot'>Mandelbrot</span>
+</div>
+
+<script type='text/javascript' src='//cdnjs.cloudflare.com/ajax/libs/three.js/r68/three.js'></script>
+<script type='text/javascript' src='//cdnjs.cloudflare.com/ajax/libs/d3/3.4.13/d3.min.js'></script>
+<script type='text/javascript' src='js/main.js'></script>
+<script type='text/javascript' src='js/droppable.js'></script>
+</body>
+<html>
