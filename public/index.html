@@ -323,14 +323,10 @@ html, body {
   uniform float width;
   uniform float height;
 
-  #define NUM_STEPS 128
+  #define NUM_STEPS 512
 
-  #ifdef GL_FRAGMENT_PRECISION_HIGH
-    precision highp float;
-  #else
-    precision mediump float;
-  #endif
-  precision mediump int;
+  precision highp float;
+  precision highp int;
 
   // http://lolengine.net/blog/2013/07/27/rgb-to-hsv-in-glsl
   vec3 rgb2hsv(vec3 c)
@@ -353,51 +349,45 @@ html, body {
 
   void main() {
     vec2 z;
-    float x, y;
+    float tmp;
     int steps;
     float val = 0.0;
-    float zoom = 1.0 / (time * time);
-    float normalizedX = 2.0 * (width * gl_FragCoord.x - 0.5) * zoom * (height / width);
-    float normalizedY = 2.0 * (height * gl_FragCoord.y - 0.5) * zoom;
+    float zoom = 1.0 / pow(1.3, time);
+    float x0 = 2.0 * (width * gl_FragCoord.x - 0.5) * zoom * (height / width);
+    float y0 = 2.0 * (height * gl_FragCoord.y - 0.5) * zoom;
 
     // http://www.nahee.com/Derbyshire/manguide.html
 
     // seahorse valley
-    normalizedX -= 0.7449;
-    normalizedY += 0.1;
+    x0 -= 0.746;
+    y0 += 0.101;
 
     // elephant valley
-    // normalizedX += 0.275;
+    // x0 += 0.275;
 
-    z.x = normalizedX;
-    z.y = normalizedY;
+    // buzzsaw
+    // x0 += 0.001643721971153;
+    // y0 -= 0.822467633298876;
 
-    for (int i = 0; i < NUM_STEPS; ++i) {
-      steps = i;
+    z.x = x0;
+    z.y = y0;
 
-      x = (z.x * z.x - z.y * z.y) + normalizedX;
-      y = (z.y * z.x + z.x * z.y) + normalizedY;
+    float bailout = pow(2.0, 8.0);
+    for (int step = 0; step < NUM_STEPS; ++step) {
+      steps = step;
 
-      val = x * x + y * y;
-      if (val > 4.0) {
+      tmp = z.x * z.x - z.y * z.y + x0;
+      z.y = 2.0 * z.y * z.x + y0;
+      z.x = tmp;
+      if (z.x * z.x + z.y * z.y >= bailout)
         break;
-      }
-
-      z.x = x;
-      z.y = y;
     }
 
-    if (steps == NUM_STEPS - 1) {
-      float v = float(steps) / float(NUM_STEPS) / 5.0 + 0.5;
-      v += 4.0 - (z.x * z.x + z.y * z.y) / 10.0;
-      vec3 c = hsv2rgb(vec3(v, 1.0, 1.0));
-      gl_FragColor = vec4(c, opacity);
-    }
-    else {
-      float v = float(steps) / float(NUM_STEPS) / 5.0 + 0.5;
-      vec3 c = hsv2rgb(vec3(v, 1.0, 1.0));
-      gl_FragColor = vec4(c, opacity);
-    }
+    float v = 0.2 * float(steps) / float(NUM_STEPS);
+    // v += (steps != NUM_STEPS - 1) ? log2(log2(length(z))) / float(NUM_STEPS) : 0.0;
+    // v += (steps == NUM_STEPS - 1) ? 4.0 - (z.x * z.x + z.y * z.y) / 10.0 : 0.0;
+    vec3 c = hsv2rgb(vec3(v, 1.0, 1.0));
+    gl_FragColor = vec4(c, opacity);
   }
 </script>
 
