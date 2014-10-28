@@ -109,6 +109,7 @@ var filter_map = {
   green: 'green_shader',
   blue: 'blue_shader',
   static: 'static_shader',
+  perlin: 'perlin_noise_shader',
   julia: 'julia_shader',
   mandelbrot: 'mandelbrot_shader'
 };
@@ -116,7 +117,8 @@ var filter_map = {
 var singlepass = {
   static: true,
   julia: true,
-  mandelbrot: true
+  mandelbrot: true,
+  perlin: true
 }
 
 var material_map = {};
@@ -151,7 +153,7 @@ function setFilter(filter) {
     multipass = true;
 }
 
-setFilter('mandelbrot');
+setFilter('perlin');
 
 function render(time) {
   requestAnimationFrame(render);
